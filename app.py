@@ -18,7 +18,7 @@ st.markdown(f"""
     border-radius:6px; 
     margin-bottom:20px">
   <strong>🧪 Very Beta v{version}</strong><br>
-  Gains  weight loss not guaranteed. Data loss guaranteed.<br>
+  Gains and weight loss not guaranteed. Data loss guaranteed.<br>
 </div>
 """, unsafe_allow_html=True)
 
