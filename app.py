@@ -3,6 +3,7 @@ import pandas as pd
 import json
 from datetime import datetime, timedelta
 import altair as alt
+import os
 
 # Load macro goals
 with open("config/macro_goals.json") as f:
@@ -11,9 +12,9 @@ with open("config/macro_goals.json") as f:
 # -- Welcome -- 
 st.sidebar.title("Welcome")
 username = st.sidebar.text_input("Enter your name",value="guest")
-
+os.makedirs("Data/logs", exist_ok=True)
 # Load Existing Data
-DATA_PATH = "Data/logs/{username}_macro_log.csv"
+DATA_PATH = f"Data/logs/{username}_macro_log.csv"
 try: 
     df = pd.read_csv(DATA_PATH)
 except FileNotFoundError:
