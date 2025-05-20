@@ -9,6 +9,19 @@ version = 0.12
 
 st.set_page_config(layout="wide")
 
+st.markdown(f"""
+<div style="
+    background-color:rgba(50, 50, 50, 0.85);
+    color:white;
+    padding:15px; 
+    border-left:5px solid #ffa502; 
+    border-radius:6px; 
+    margin-bottom:20px">
+  <strong>🧪 Very Beta v{version}</strong><br>
+  Gains and weight loss not guaranteed. Data loss guaranteed.<br>
+</div>
+""", unsafe_allow_html=True)
+
 def render_goal_editor(username, existing_goals=None):
     st.subheader("Set your macro goals")
 
