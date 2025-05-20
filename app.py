@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import altair as alt
 import os
 
+st.markdown("### ✅ LIVE VERSION: May 19 @ 10:55 PM")
+
 st.set_page_config(layout="wide")
 
 def render_goal_editor(username, existing_goals=None, on_submit_step='main'):
