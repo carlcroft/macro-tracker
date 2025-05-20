@@ -6,7 +6,7 @@ import altair as alt
 import os
 import plotly.express as px
 
-version = 0.13
+version = 0.12
 
 st.set_page_config(layout="wide")
 
@@ -118,49 +118,76 @@ totals = today_df[["calories", "protein", "carbs", "fat"]].sum() if not today_df
 percentages = {
     macro: (totals[macro] / goals[macro]) * 100 if goals[macro] > 0 else 0 for macro in goals
 }
+# Side-by-side columns
+progress_col, pie_col = st.columns([2,1])
 
 # - Progress Bars -
-
-macro_list = list(goals.keys())
-for i in range(0,len(macro_list),2):
-    col1,col2 = st.columns(2)
-    macro1 = macro_list[i]
-    with col1:
-        st.metric(label=f"{macro1.capitalize()}", value=f"{totals[macro1]} / {goals[macro1]}")
-        st.progress(min(int(percentages[macro1]), 100))
-    if i + 1 < len(macro_list):
-        macro2 = macro_list[i + 1]
-        with col2:
-            st.metric(label=f"{macro2.capitalize()}", value=f"{totals[macro2]} / {goals[macro2]}")
-            st.progress(min(int(percentages[macro2]), 100))
+with progress_col:
+    macro_list = list(goals.keys())
+    for i in range(0,len(macro_list),2):
+        col1,col2 = st.columns(2)
+        macro1 = macro_list[i]
+        with col1:
+            st.metric(label=f"{macro1.capitalize()}", value=f"{totals[macro1]} / {goals[macro1]}")
+            st.progress(min(int(percentages[macro1]), 100))
+        if i + 1 < len(macro_list):
+            macro2 = macro_list[i + 1]
+            with col2:
+                st.metric(label=f"{macro2.capitalize()}", value=f"{totals[macro2]} / {goals[macro2]}")
+                st.progress(min(int(percentages[macro2]), 100))
 # - Pie Chart - 
-if not today_df.empty:
-    macro_totals = today_df[["protein","carbs","fat"]].sum()
-    macro_calories = {
-        "Protein": macro_totals["protein"] * 4,
-        "Carbs": macro_totals["carbs"] * 4,
-        "Fat": macro_totals["fat"] * 9
-    }
+with pie_col:
+    if not today_df.empty:
+        macro_totals = today_df[["protein","carbs","fat"]].sum()
+        macro_calories = {
+            "Protein": macro_totals["protein"] * 4,
+            "Carbs": macro_totals["carbs"] * 4,
+            "Fat": macro_totals["fat"] * 9
+        }
 
-    pie_df = pd.DataFrame({
-        "Macro": list(macro_calories.keys()),
-        "Calories": list(macro_calories.values())
-    })
+        pie_df = pd.DataFrame({
+            "Macro": list(macro_calories.keys()),
+            "Calories": list(macro_calories.values())
+        })
+        
+        color_scale = alt.Scale(
+            domain=["Protein", "Carbs", "Fat"],
+            range=["#6A5ACD", "#FFD700", "#3CB371"]
+        )
 
-    fig = px.pie(pie_df, values='Calories', names='Macro', title='Macro Calorie Breakdown',
-            hole=0.5,
-            color="Macro",
-            color_discrete_map={
-                "Protein": "#6A5ACD",
-                "Carbs": "#FFD700",
-                "Fat": "#3CB371"
-            },
-            labels={'Calories': 'Calories', 'Macro': 'Macro'},
-            template='plotly_dark')
-    fig.update_traces(textposition='inside', textinfo='percent+label',textfont_size=14)
-    st.plotly_chart(fig, use_container_width=True)
+        pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=80).encode(
+            theta = "Calories:Q",
+            color = alt.Color("Macro:N", scale=color_scale),
+            tooltip = ["Macro", "Calories"]
+        ).properties(
+            title="Macro Calorie Breakdown"
+        )
+        # - Adding a text label to the pie chart -
+        text_labels = alt.Chart(pie_df).mark_text(radius=110, color="white", size=12).encode(
+            theta=alt.Theta("Calories:Q"),
+            text=alt.Text("Calories:Q", format=".0f"),
+        )
+        st.altair_chart(pie_chart + text_labels, use_container_width=True)
+    else: st.write("No data to show for today's pie chart.")
 
-else: st.write("No data to show for today's pie chart.")
+# -- Trying Plotly for a different pie chart
+pie_df = pd.DataFrame({
+    "Macro": list(macro_calories.keys()),
+    "Calories": list(macro_calories.values())
+})
+
+fig = px.pie(pie_df, values='Calories', names='Macro', title='Macro Calorie Breakdown (plotly)',
+             hole=0.5,
+             color="Macro",
+             color_discrete_map={
+                 "Protein": "#6A5ACD",
+                 "Carbs": "#FFD700",
+                 "Fat": "#3CB371"
+             },
+             labels={'Calories': 'Calories', 'Macro': 'Macro'},
+             template='plotly_dark')
+fig.update_traces(textposition='inside', textinfo='percent+label',textfont_size=14)
+st.plotly_chart(fig, use_container_width=True)
 
 # -- Edit Goals Section --
 goal_button_label = "Edit Macro Goals" if st.session_state["macro_goals"] else "Set Macro Goals"
@@ -176,10 +203,10 @@ if "form_submitted" not in st.session_state:
     # Reset Fields
 if st.session_state["form_submitted"]:
     st.session_state["food_name_input"] = ""
-    st.session_state["calories_input"] = 0
-    st.session_state["protein_input"] = 0
-    st.session_state["carb_input"] = 0
-    st.session_state["fat_input"] = 0
+    st.session_state["calories_input"] = 0.0
+    st.session_state["protein_input"] = 0.0
+    st.session_state["carb_input"] = 0.0
+    st.session_state["fat_input"] = 0.0
     st.session_state["form_submitted"] = False
 
 st.subheader("Add Food")
@@ -290,5 +317,5 @@ if "edit_row" in st.session_state:
         st.success("Entry Updated")
         del st.session_state["edit_row"]
         st.rerun()
-    else:
-        st.write("No entries logged today.")
+else:
+    st.write("No entries logged today.")
