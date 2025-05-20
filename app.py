@@ -167,9 +167,9 @@ with pie_col:
 goal_button_label = "Edit Macro Goals" if st.session_state["macro_goals"] else "Set Macro Goals"
 if st.button(goal_button_label):
     st.session_state["editing_goals"] = True
-if "username" in st.session_state:
+if "username_cleaned" in st.session_state:
     if st.session_state.get("editing_goals"):
-        render_goal_editor(st.session_state["username"], existing_goals=st.session_state["macro_goals"])
+        render_goal_editor(username, existing_goals=st.session_state["macro_goals"])
 
 # -- Input Section --
 if "form_submitted" not in st.session_state:
