@@ -129,7 +129,12 @@ elif st.session_state["step"] == "main":
         """, unsafe_allow_html=True)
     
     if not today_df.empty:
-        totals = today_df[["calories", "protein", "carbs", "fat"]].sum()
+        totals = today_df[["calories", "protein", "carbs", "fat"]].sum() if not today_df.empty else{
+            "calories": 0,
+            "protein": 0,
+            "carbs":0,
+            "fat":0
+        }
         percentages = {
             macro: (totals[macro] / goals[macro]) * 100 for macro in goals
         }
