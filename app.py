@@ -146,15 +146,13 @@ elif st.session_state["step"] == "main":
                 with col2:
                     st.metric(label=f"{macro2.capitalize()}", value=f"{totals[macro2]} / {goals[macro2]}")
                     st.progress(min(int(percentages[macro2]), 100))
-    else: 
-        st.write("No entries today.")
     if st.button("Edit Goals"):
         st.session_state["editing_goals"] = True
     if st.session_state.get("editing_goals"):
         render_goal_editor(st.session_state["username"], existing_goals=st.session_state["macro_goals"], on_submit_step="main")
     
     # -- Input Section --
-    st.subheader("Add Food Entry")
+    st.subheader("Add Food")
     with st.form("food_form"):
         food = st.text_input("Food name")
         calories = st.number_input("Calories", min_value=0.0, step=0.1)
