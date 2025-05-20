@@ -4,19 +4,22 @@ import json
 from datetime import datetime, timedelta
 import altair as alt
 
-# -- Functions --
-
-
 # Load macro goals
 with open("config/macro_goals.json") as f:
     goals = json.load(f)
 
+# -- Welcome -- 
+st.sidebar.title("Welcome")
+username = st.sidebar.text_input("Enter your name",value="guest")
+
 # Load Existing Data
-DATA_PATH = "Data/food_log.csv"
+DATA_PATH = "Data/logs/{username}_macro_log.csv"
 try: 
     df = pd.read_csv(DATA_PATH)
 except FileNotFoundError:
     df = pd.DataFrame(columns=["date", "food", "calories", "protein", "carbs", "fat"])
+
+
 
 # -- Input Section --
 st.title("Macro Tracker")
