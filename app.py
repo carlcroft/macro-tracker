@@ -5,8 +5,9 @@ from datetime import datetime, timedelta
 import altair as alt
 import os
 
-
 version = 0.12
+
+st.set_page_config(layout="wide")
 
 st.markdown(f"""
 <div style="
@@ -17,12 +18,9 @@ st.markdown(f"""
     border-radius:6px; 
     margin-bottom:20px">
   <strong>🧪 Very Beta v{version}</strong><br>
-  Gains and weight loss not guaranteed. Data loss guaranteed.<br>
+  Gains  weight loss not guaranteed. Data loss guaranteed.<br>
 </div>
 """, unsafe_allow_html=True)
-
-st.set_page_config(layout="wide")
-
 
 def render_goal_editor(username, existing_goals=None):
     st.subheader("Set your macro goals")
