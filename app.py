@@ -79,10 +79,70 @@ elif st.session_state["step"] == "main":
     except FileNotFoundError:
         df = pd.DataFrame(columns=["date", "food", "calories", "protein", "carbs", "fat"])
 
-    # -- Today's Summary -- 
+    # -- Today's Progress Section -- 
     st.subheader("Today's Progress")
     today = datetime.now().date().isoformat()
     today_df = df[df["date"] == today]
+
+    totals = today_df[["calories", "protein", "carbs", "fat"]].sum() if not today_df.empty else{
+            "calories": 0,
+            "protein": 0,
+            "carbs":0,
+            "fat":0
+        }
+    percentages = {
+        macro: (totals[macro] / goals[macro]) * 100 if goals[macro] > 0 else 0 for macro in goals
+    }
+    # Side-by-side columns
+    progress_col, pie_col = st.columns([2,1])
+
+    # - Progress Bars -
+    with progress_col:
+        macro_list = list(goals.keys())
+        for i in range(0,len(macro_list),2):
+            col1,col2 = st.columns(2)
+            macro1 = macro_list[i]
+            with col1:
+                st.metric(label=f"{macro1.capitalize()}", value=f"{totals[macro1]} / {goals[macro1]}")
+                st.progress(min(int(percentages[macro1]), 100))
+            if i + 1 < len(macro_list):
+                macro2 = macro_list[i + 1]
+                with col2:
+                    st.metric(label=f"{macro2.capitalize()}", value=f"{totals[macro2]} / {goals[macro2]}")
+                    st.progress(min(int(percentages[macro2]), 100))
+    # - Pie Chart - 
+    with pie_col:
+        if not today_df.empty:
+            macro_totals = today_df[["protein","carbs","fat"]].sum()
+            macro_calories = {
+                "Protein": macro_totals["protein"] * 4,
+                "Carbs": macro_totals["carbs"] * 4,
+                "Fat": macro_totals["fat"] * 9
+            }
+
+            pie_df = pd.DataFrame({
+                "Macro": list(macro_calories.keys()),
+                "Calories": list(macro_calories.values())
+            })
+            
+            color_scale = alt.Scale(
+                domain=["Protein", "Carbs", "Fat"],
+                range=["#6A5ACD", "#FFD700", "#3CB371"]
+            )
+
+            pie_chart = alt.Chart(pie_df).mark_arc(innerRadius=80).encode(
+                theta = "Calories:Q",
+                color = alt.Color("Macro:N", scale=color_scale),
+                tooltip = ["Macro", "Calories"]
+            ).properties(
+                title="Macro Calorie Breakdown"
+            )
+            st.altair_chart(pie_chart, use_container_width=True)
+        else: st.write("No data to show for today's pie chart.")
+    if st.button("Edit Goals"):
+        st.session_state["editing_goals"] = True
+    if st.session_state.get("editing_goals"):
+        render_goal_editor(st.session_state["username"], existing_goals=st.session_state["macro_goals"], on_submit_step="main")
 
     if False:
         today_totals = today_df[["calories", "protein", "carbs", "fat"]].sum()
@@ -129,43 +189,26 @@ elif st.session_state["step"] == "main":
             </div>
         </div>
         """, unsafe_allow_html=True)
-    
-    if not today_df.empty:
-        totals = today_df[["calories", "protein", "carbs", "fat"]].sum() if not today_df.empty else{
-            "calories": 0,
-            "protein": 0,
-            "carbs":0,
-            "fat":0
-        }
-        percentages = {
-            macro: (totals[macro] / goals[macro]) * 100 for macro in goals
-        }
-        macro_list = list(goals.keys())
-        for i in range(0,len(macro_list),2):
-            col1,col2 = st.columns(2)
-            macro1 = macro_list[i]
-            with col1:
-                st.metric(label=f"{macro1.capitalize()}", value=f"{totals[macro1]} / {goals[macro1]}")
-                st.progress(min(int(percentages[macro1]), 100))
-            
-            if i + 1 < len(macro_list):
-                macro2 = macro_list[i + 1]
-                with col2:
-                    st.metric(label=f"{macro2.capitalize()}", value=f"{totals[macro2]} / {goals[macro2]}")
-                    st.progress(min(int(percentages[macro2]), 100))
-    if st.button("Edit Goals"):
-        st.session_state["editing_goals"] = True
-    if st.session_state.get("editing_goals"):
-        render_goal_editor(st.session_state["username"], existing_goals=st.session_state["macro_goals"], on_submit_step="main")
-    
+
     # -- Input Section --
+    if "form_submitted" not in st.session_state:
+        st.session_state["form_submitted"] = False
+     # Reset Fields
+    if st.session_state["form_submitted"]:
+        st.session_state["food_name_input"] = ""
+        st.session_state["calories_input"] = 0.0
+        st.session_state["protein_input"] = 0.0
+        st.session_state["carb_input"] = 0.0
+        st.session_state["fat_input"] = 0.0
+        st.session_state["form_submitted"] = False
+
     st.subheader("Add Food")
     with st.form("food_form"):
-        food = st.text_input("Food name")
-        calories = st.number_input("Calories", min_value=0.0, step=0.1)
-        protein = st.number_input("Protein", min_value=0.0, step=0.1)
-        carbs = st.number_input("Carbs", min_value=0.0, step=0.1)
-        fat = st.number_input("Fat",min_value=0.0, step=0.1)
+        food = st.text_input("Food name", key="food_name_input")
+        calories = st.number_input("Calories", min_value=0.0, step=0.1, key="calories_input")
+        protein = st.number_input("Protein (g)", min_value=0.0, step=0.1, key="protein_input")
+        carbs = st.number_input("Carbs (g)", min_value=0.0, step=0.1, key="carb_input")
+        fat = st.number_input("Fat (g)",min_value=0.0, step=0.1, key="fat_input")
         submitted = st.form_submit_button("Add")
 
     if submitted:
@@ -180,6 +223,9 @@ elif st.session_state["step"] == "main":
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         df.to_csv(DATA_PATH, index=False)
         st.success("Food Logged!")
+
+        st.session_state["form_submitted"] = True
+        st.rerun()
 
     # -- Weekly Summary --
     st.subheader("Weekly Summary")
