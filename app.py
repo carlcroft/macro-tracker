@@ -76,7 +76,7 @@ if "macro_goals" not in st.session_state:
 
 # -- Step 3: Main App
 st.title("Macro Tracker")
-st.markdown(f"Logged in as: `{st.session_state['username']}`")
+st.markdown(f"Logged in as: `{username}`")
 st.sidebar.caption(f"Version: {version}")
 goals = st.session_state["macro_goals"]
 
