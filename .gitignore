@@ -1,5 +1,7 @@
 venv/
 *.DS_Store
 __pycache__/
-.streamlit/secrets.toml
+.streamlit/secrets.toml/
 .streamlit/
+data/logs/
+data/recipes/
