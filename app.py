@@ -503,8 +503,7 @@ st.session_state["recipes"] = raw_recipes
 st.session_state["food_logs"] = logs_df
 
 st.title("Macro Tracker")
-st.markdown(f"Logged in as: `{st.session_state["username_cleaned"]}`")
-st.markdown(f"user_id: `{user_id}`")
+st.markdown(f"Logged in as: `{st.session_state['username_cleaned']}`")
 
 tab1, tab2 = st.tabs(["Dashboard", "Food Log"])
 
