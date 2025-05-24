@@ -422,6 +422,17 @@ def log_entry(food_name: str, macros: dict):
         fetch_logs.clear()
         st.rerun()
 
+st.markdown(
+    """
+    <style>
+      /* target all expander header buttons */
+      section[data-testid="stExpander"] > div > div > button {
+        font-size: 18px !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 
@@ -595,7 +606,7 @@ with tab1:
                 labels={'Calories': 'Calories', 'Macro': 'Macro'},
                 template='plotly_dark')
         fig.update_traces(textposition='inside', textinfo='percent+label',textfont_size=14)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=False,width=300)
 
     else: 
         st.write("No data to show for today's pie chart.")
@@ -712,216 +723,139 @@ with tab2:
     with col2: 
         st.header("Food Logged Today")
         today_logs["time"] = pd.to_datetime(today_logs["time"], format="%H:%M:%S").dt.strftime("%-I:%M %p")
-        st.dataframe(today_logs[["time","food","calories","protein","carbs","fat"]], use_container_width=True)
-
 #----------------------------------------------------
 #  Food log UI, Edit, and Delete
 # ---------------------------------------------------
+
         if today_logs.empty:
             st.info("No food logged today yet.")
-        else:     
-            # 1) Get a proper list of row‐dicts
+        else:
+            # turn into list of dicts once
             records = today_logs.to_dict(orient="records")
 
             for rec in records:
-                # 2) format the header
-                header = f"{rec['time']}: {rec['food']} — {rec['calories']} cal"
+                # 1) Build your expander header
+                header = f"{rec['time']}: {rec['food']} — Cals: {rec['calories']}, Protein: {rec['protein']} (g), Carbs: {rec['carbs']} (g), Fat: {rec['fat']} (g)"
 
                 with st.expander(header, expanded=False):
-                    # 0) Detect Streamlit’s theme
-                    mode = st.get_option("theme.base")     # “light” or “dark”
+                    st.caption("Impact on macros goals")
+                    # 2) Prepare & style your Plotly figure
+                    mode     = st.get_option("theme.base")  # "light" or "dark"
+                    template = "plotly_white" if mode=="light" else "plotly_dark"
 
-                    # 1) Pick a Plotly template
-                    template = "plotly_white" if mode == "light" else "plotly_dark"
-                    fig.update_layout(template=template)
+                    fig = make_subplots(
+                        rows=1, cols=3,
+                        specs=[[{"type":"domain"}]*3],
+                        subplot_titles=[f"Protein: {rec['protein']} (g)", f"Carbs: {rec['carbs']} (g)", f"Fat: {rec['fat']} (g)"]
+                    )
+                    fig.update_layout(template=template, margin=dict(l=0,r=0,t=10,b=0), height=120, width=300, showlegend=False)
 
-                    # 2) Pick an annotation color (and maybe a semi-opaque background)
-                    if mode == "light":
-                        ann_color = "#000"                    # black text on light
-                        ann_bg    = "rgba(255,255,255,0.6)"   # light translucent box
-                    else:
-                        ann_color = "#fff"                    # white text on dark
-                        ann_bg    = "rgba(0,0,0,0.6)"  
-                    # 3) build the 1×3 pie subplot
-                    fig = make_subplots(rows=1, cols=3, specs=[[{"type":"domain"}]*3],
-                                        subplot_titles=["Protein","Carbs","Fat"])
                     colors = {
                         "protein": ["#6A5ACD","#E0E0FF"],
                         "carbs":   ["#FFD700","#FFF8B0"],
                         "fat":     ["#3CB371","#B0EFB0"]
                     }
 
+                    percentages = []
                     for i, macro in enumerate(["protein","carbs","fat"], start=1):
-                        eaten    = float(rec[macro])
-                        goal     = float(macro_goals.get(macro, 1))
-                        remaining= max(goal - eaten, 0)
-                        pct      = round(eaten/goal*100, 1) if goal else 0
+                        eaten     = float(rec[macro])
+                        goal      = float(macro_goals.get(macro,1))
+                        remaining = max(goal - eaten, 0)
+                        pct       = round(eaten/goal*100,1) if goal else 0
+                        percentages.append(pct)
 
                         fig.add_trace(
                             go.Pie(
                                 labels=["Eaten","Remaining"],
                                 values=[eaten, remaining],
-                                hole=0.6,
+                                hole=0.68,
+                                sort= False,
                                 marker=dict(colors=colors[macro]),
-                                hovertemplate="%{label}: %{percent} of daily goal",
-                                textinfo="none"
+                                hoverinfo='none',
+                                textinfo='none'
                             ),
                             row=1, col=i
                         )
+
+                    # center the % annotation in each donut
                     for idx, trace in enumerate(fig.data):
-                        dom = trace.domain
+                        dom   = trace.domain
                         mid_x = (dom.x[0] + dom.x[1]) / 2
                         mid_y = (dom.y[0] + dom.y[1]) / 2
                         fig.add_annotation(
-                            x= mid_x,
-                            y= mid_y,
+                            x=mid_x, y=mid_y,
                             text=f"{percentages[idx]}%",
                             showarrow=False,
-                            font=dict(size=20,color=ann_color),
-                            xanchor="center",
-                            align="center"
+                            font=dict(size=16, color=("#000" if mode=="light" else "#fff")),
+                            xanchor="center", yanchor="middle"
                         )
+                    fig.update_layout(
+                        margin=dict(l=0, r=0, t=20, b=0),   # more space at top
+                        height=140,                         # a bit shorter overall
+                        width=300,
+                        showlegend=False
+                    )
 
-                    fig.update_layout(margin=dict(l=0,r=0,t=20,b=0), height=200, showlegend=False)
-                    st.plotly_chart(fig, use_container_width=True, key=f"pies_{rec['log_id']}")  
-            if False:
-                for actual_idx, row in today_logs.iloc[::-1].iterrows():
-                    with st.expander(f"{row['time']}: {row['food']} - {row['calories']} cal"):
-                        df = logs_df
-                        totals = df[["protein","carbs","fat"]].sum().to_dict()
+                    # 2) Tweak each subplot‐title annotation
+                    for ann in fig.layout.annotations:
+                        # these first three are your subplot_titles
+                        if ann.text in ["Protein","Carbs","Fat"]:
+                            ann.font.size = 13              # smaller title font
+                            ann.y = ann.y           # nudge down a bit
 
-                        # 2) build a subplot figure with 3 pies
-                        fig = make_subplots(
-                            rows=1, cols=3,
-                            specs=[[{"type":"domain"}, {"type":"domain"}, {"type":"domain"}]],
-                            subplot_titles=["Protein","Carbs","Fat"]
-                        )
+                    st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, "displayModeBar": False}, key=f"pies_{rec['log_id']}")
 
-                        colors = {
-                            "protein": ["#6A5ACD", "#E0E0FF"],
-                            "carbs":   ["#FFD700", "#FFF8B0"],
-                            "fat":     ["#3CB371", "#B0EFB0"]
-                        }
-
-                        for i, macro in enumerate(["protein","carbs","fat"], start=1):
-                            eaten = float(totals.get(macro, 0))
-                            goal = float(macro_goals.get(macro, 1))
-                            remaining = max(goal - eaten, 0)
-
-                            fig.add_trace(go.Pie(
-                                labels = ["Eaten", "Remaining"],
-                                values = [eaten, remaining],
-                                hole = 0.6,
-                                marker=dict(colors=colors[macro],
-                                            line=dict(color="white",width=2)),
-                                hovertemplate = "%{label}: %{percent} of daily goal",        
-                                textinfo=None,
-                                textfont_size=14),
-                                row=1,col=i)
-                            
-                            pct = round(eaten/goal * 100, 1) if goal else 0
-
-                        fig.update_layout(
-                            margin=dict(l=0, r=0, t=30, b=0),
-                            height=200,
-                            showlegend=False
-                        )
-                        fig.update_layout(margin=dict(l=0, r=0, t=30, b=0), height=200, showlegend=False)
-
-                        st.plotly_chart(fig, use_container_width=True, key=f"macropies_{row['log_id']}")
-                    
-                    if False:
-                        cal, protein, carbs, fat = row["calories"], row["protein"], row["carbs"], row["fat"]
-                        cal_goal, p_goal, c_goal, f_goal = (macro_goals[k] for k in ("calories","protein", "carbs", "fat"))
-                        if not today_logs.empty:
-                            # 1) sum up grams consumed today
-                            df = logs_df
-                            totals = df[["protein","carbs","fat"]].sum().to_dict()
-
-                            # 2) build a subplot figure with 3 pies
-                            fig = make_subplots(
-                                rows=1, cols=3,
-                                specs=[[{"type":"domain"}, {"type":"domain"}, {"type":"domain"}]],
-                                subplot_titles=["Protein","Carbs","Fat"]
-                            )
-
-                            colors = {
-                                "Protein": ["#6A5ACD", "#E0E0FF"],
-                                "Carbs":   ["#FFD700", "#FFF8B0"],
-                                "Fat":     ["#3CB371", "#B0EFB0"]
-                            }
-
-                            for i, macro in enumerate(["protein","carbs","fat"], start=1):
-                                eaten    = float(totals.get(macro, 0))
-                                goal     = float(macro_goals.get(macro, 1))
-                                remaining = max(goal - eaten, 0)
-
-                                fig.add_traces(go.Pie(
-
-                                    textinfo='percent+label',textfont_size=14))
-                                pct = round(eaten/goal * 100, 1) if goal else 0
-                                fig.add_annotation(
-                                    x= (i - 1)/3 + 1/6, y=0.5, 
-                                    text=f"{pct}%",
-                                    showarrow=False,
-                                    font=dict(size=14)
-                                )
-
-                            fig.update_layout(
-                                margin=dict(l=0, r=0, t=30, b=0),
-                                height=200,
-                                showlegend=False
-                            )
-
-                            st.plotly_chart(fig, use_container_width=True)
-
-
-
-                    if False:
-                        cal_pct = round(cal / cal_goal * 100, 1) if cal_goal else 0
-                        p_pct = round(protein/p_goal * 100, 1) if p_goal else 0
-                        c_pct = round(carbs/c_goal * 100,1 ) if c_goal else 0
-                        f_pct = round(fat/f_goal * 100, 1) if f_goal else 0
-
-                        col1, col2, col3, col4 = st.columns(4)
-                        col1.metric("🔥 Calories", f"{cal} / {cal_goal}", f"{cal_pct}%", border=True)
-                        col2.metric("Protein", f"{protein}g/ {p_goal}g", f"{p_pct}%", border=True)
-                        col3.metric("Carbs", f"{carbs}g/ {c_goal}g", f"{c_pct}%", border=True)
-                        col4.metric("Fats", f"{fat}g/ {f_goal}g", f"{f_pct}%", border=True)
-
-                        bar1, bar2, bar3, bar4 = st.columns(4)
-                        bar1.progress(min(int(cal_pct), 100))
-                        bar2.progress(min(int(p_pct),100))
-                        bar3.progress(min(int(c_pct),100))
-                        bar4.progress(min(int(f_pct),100))
-
-                    col1, col2 = st.columns([1,1])
+                    # 3) Action buttons for this entry
+                    col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("Edit", key=f"edit_{actual_idx}"):
-                            st.session_state["edit_row"] = actual_idx
+                        if st.button("Edit", key=f"edit_{rec['log_id']}"):
+                            st.session_state["edit_log_id"] = rec["log_id"]
+                            st.rerun()
                     with col2:
-                        if st.button("Delete", key=f"delete_{actual_idx}"):
-                            res = supabase.table("food_logs").delete().eq("log_id",row['log_id']).execute()
-                            st.session_state["entry_deleted"] = True
-            if "edit_row" in st.session_state:
-                edit_idx = st.session_state["edit_row"]
-                row = today_logs.loc[edit_idx]
-    #----------------------------------------------------
-    #  Food log UI, Edit, and Delete
-    # ---------------------------------------------------
-                st.subheader(f"Edit Entry: {row['food']}")
-                with st.form("edit_form"):
-                    new_food = st.text_input("Food name", value = row["food"])
-                    new_cal = st.number_input("Calories", value=float(row["calories"]), step=0.1)
-                    new_pro = st.number_input("Protein (g)", value=float(row["protein"]), step=0.1)
-                    new_carb = st.number_input("Carbs (g)", value=float(row["carbs"]), step=0.1)
-                    new_fat = st.number_input("Fats (g)", value=float(row["fat"]), step=0.1)
-                    save = st.form_submit_button("Save")
-                
-                if save:
-                    today_logs.loc[edit_idx, ["food", "calories", "protein", "carbs", "fat"]] = [
-                        new_food, new_cal, new_pro, new_carb, new_fat
-                    ]
-                    df.to_csv(DATA_PATH, index=False)
-                    st.session_state["form_submitted"] = True
-                    del st.session_state["edit_row"]                    
+                        if st.button("Delete", key=f"del_{rec['log_id']}"):
+                            res = (
+                                supabase.table("food_logs")
+                                        .delete()
+                                        .eq("log_id", rec["log_id"])
+                                        .execute()
+                            )
+                            if res.error:
+                                st.error(f"Delete failed: {res.error.message}")
+                            else:
+                                st.success("Entry deleted.")
+                                fetch_logs.clear()
+                                st.rerun()
+
+            # 4) Edit‐form outside the loop, triggered by the “Edit” button
+            if "edit_log_id" in st.session_state:
+                log_id = st.session_state.pop("edit_log_id")
+                rec    = next(r for r in records if r["log_id"] == log_id)
+
+                st.subheader(f"Edit Entry: {rec['food']}")
+                with st.form("edit_form", clear_on_submit=False):
+                    new_food    = st.text_input("Food name", value=rec["food"])
+                    new_cal     = st.number_input("Calories",   value=rec["calories"], step=0.1)
+                    new_protein = st.number_input("Protein (g)",value=rec["protein"],  step=0.1)
+                    new_carbs   = st.number_input("Carbs (g)",  value=rec["carbs"],    step=0.1)
+                    new_fat     = st.number_input("Fat (g)",    value=rec["fat"],       step=0.1)
+                    save_btn    = st.form_submit_button("Save changes")
+
+                if save_btn:
+                    upd = (
+                        supabase.table("food_logs")
+                                .update({
+                                    "food":     new_food,
+                                    "calories": new_cal,
+                                    "protein":  new_protein,
+                                    "carbs":    new_carbs,
+                                    "fat":      new_fat
+                                })
+                                .eq("log_id", log_id)
+                                .execute()
+                    )
+                    if upd.error:
+                        st.error(f"Update failed: {upd.error.message}")
+                    else:
+                        st.success("Entry updated.")
+                        fetch_logs.clear()
+                        st.rerun()
