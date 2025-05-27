@@ -15,25 +15,46 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import altair as alt
 import plotly.express as px
+from streamlit_option_menu import option_menu
+from streamlit_lottie import st_lottie
+import requests
 import pytz
 import uuid
 # ------------------------- App Variables -------------------------
 eastern = pytz.timezone("US/Eastern")
 now = datetime.now(eastern)
 version = 0.32
-# ------------------------- Beta Warning -------------------------
-st.markdown(f"""
-<div style="
-    background-color:rgba(50, 50, 50, 0.85);
-    color:white;
-    padding:15px; 
-    border-left:5px solid #ffa502; 
-    border-radius:6px; 
-    margin-bottom:20px">
-  <strong>🧪 Very Beta v{version}</strong><br>
-  Gains and weight loss not guaranteed. Data loss shouldn't be a problem anymore? We'll see.<br>
-</div>
-""", unsafe_allow_html=True)
+
+@st.cache_data
+def load_lottie_url(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+
+
+if "animation" not in st.session_state:
+    st.session_state["animation"] = True
+
+if "user_id" in st.session_state:
+    st.session_state["animation"] = False
+
+# 1) pick any Lottie JSON URL you like
+lottie_url = "https://assets10.lottiefiles.com/packages/lf20_x62chJ.json"
+anim = load_lottie_url(lottie_url)
+
+# 2) display it (height in pixels)
+if anim and st.session_state["animation"]:
+    st.subheader("Welcome to Your Macro Dashboard. Enter your Username to continue.")
+    st_lottie(
+        anim,
+        speed=1.0,      # 0.5 = half speed, 2.0 = double
+        loop=True,
+        quality="high",
+        height=200,
+        key="dashboard_lottie"
+    )
 
 # ------------------------- Functions -------------------------
 # ______ 1. Upsert ______
@@ -288,7 +309,11 @@ def render_log_tab2():
             else:
                 st.success(f"Logged recipe '{choice}'")
                 fetch_logs.clear()
-                st.experimental_rerun()
+                st.rerun()
+
+from streamlit_option_menu import option_menu
+
+# at top of your main script
 
 
 #______ 4. Recipe Tab _______________
@@ -433,10 +458,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
-
-
 #---------------------------------------------------------------------------------------------------
 #                           App UI
 # --------------------------------------------------------------------------------------------------
@@ -516,12 +537,10 @@ st.session_state["food_logs"] = logs_df
 st.title("Macro Tracker")
 st.markdown(f"Logged in as: `{st.session_state['username_cleaned']}`")
 
-tab1, tab2 = st.tabs(["Dashboard", "Food Log"])
-
 #---------------------------------------------------------------------------------------------------
 #                           Tab1: Dashboard
 # --------------------------------------------------------------------------------------------------
-with tab1:
+def render_dashboard():
     st.header("Today's Progress")
     #----------------------------------------------------
     #  Defining macros and targets
@@ -581,7 +600,7 @@ with tab1:
     #----------------------------------------------------
     #  Pie Chart
     # ---------------------------------------------------
-    st.subheader("Macro Calorie Breakdown", divider='blue')
+    st.subheader("Macro Calorie Breakdown")
     if not today_logs.empty:
         macro_totals = today_logs[["protein","carbs","fat"]].sum()
         macro_calories = {
@@ -653,11 +672,12 @@ with tab1:
     with col2:  
         st.altair_chart(macro_bar_chart(weekly_summary, "carbs", "#FFD700", "Carbs"), use_container_width=True)
         st.altair_chart(macro_bar_chart(weekly_summary, "fat", "#3CB371", "Fats"), use_container_width=True)
-                        
+                    
 #---------------------------------------------------------------------------------------------------
 #                           Tab2: Food Log
 # --------------------------------------------------------------------------------------------------
-with tab2:
+
+def render_food_log():
     col1, col2 = st.columns(2)
     with col1:
         if "recipe_expander_open" not in st.session_state:
@@ -720,13 +740,14 @@ with tab2:
             if submit:
                 log_entry(food, {"calories":calories, "protein":protein, "carbs": carbs, "fat":fat})
                 st.success(f"Logged “{food}”!")
-    with col2: 
+    with col2:
+        today = now.date().isoformat()
+        today_logs = logs_df[logs_df["date"] == today]
         st.header("Food Logged Today")
         today_logs["time"] = pd.to_datetime(today_logs["time"], format="%H:%M:%S").dt.strftime("%-I:%M %p")
 #----------------------------------------------------
 #  Food log UI, Edit, and Delete
 # ---------------------------------------------------
-
         if today_logs.empty:
             st.info("No food logged today yet.")
         else:
@@ -859,3 +880,22 @@ with tab2:
                         st.success("Entry updated.")
                         fetch_logs.clear()
                         st.rerun()
+TAB_NAMES = ["Dashboard", "Food Log"]
+default = st.session_state.get("active_tab_index", 0)
+
+selected = option_menu(
+    menu_title=None,                        # no title
+    options=TAB_NAMES,
+    icons=["bar-chart", "journal-medical"],  
+    menu_icon="app-indicator",
+    default_index=default,
+    orientation="horizontal",
+)
+# store so it survives any rerun
+st.session_state["active_tab_index"] = TAB_NAMES.index(selected)
+
+# dispatch
+if selected == "Dashboard":
+    render_dashboard()
+else:
+    render_food_log()
