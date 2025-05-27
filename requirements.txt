@@ -4,3 +4,4 @@ altair
 plotly
 pytz
 supabase
+streamlit-option-menu
