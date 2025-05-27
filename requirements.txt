@@ -5,3 +5,4 @@ plotly
 pytz
 supabase
 streamlit-option-menu
+streamlit-lottie
